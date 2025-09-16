@@ -1,7 +1,4 @@
 
-import os
-import csv
-
 """
 Measurement Setup and Position Calculation Module
 
@@ -84,7 +81,7 @@ def setup_measurement_extended(trial_dir):
         print("The stepper motor moves your indentor horizontally across the sensor.")
         print("")
         x_ground = float(input("🏠 Enter the REFERENCE/ZERO X position (mm): "))
-        print("   → This is your baseline position (often where you first contact the sensor)")
+        print("   → This is your baseline position (often where you first contact the middle point of the sensor)")
         print("")
         x_start = float(input("🚀 Enter the STARTING X position for this sequence (mm): "))
         print("   → This is where the indentor will begin before starting the movement sequence")
@@ -134,7 +131,7 @@ def setup_measurement_extended(trial_dir):
             writer.writerow(["Indentor_Radius_mm", indentor_radius])
             writer.writerow(["Indentor_Shape", indentor_shape])
             writer.writerow(["Indentation_Duration_s", indentation_duration])
-            writer.writerow(["Sequence_File_Name", sequence_filename])
+            writer.writerow(["Sequence_File_Name_used_for_steppers", sequence_filename])
 
         # Display comprehensive summary for user verification
         df = pd.read_csv(setup_csv_path)
