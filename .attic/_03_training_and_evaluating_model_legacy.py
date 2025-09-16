@@ -1,0 +1,3 @@
+# Legacy training script (archived for reference)
+# Not used in main pipeline. See training/ for current version.
+...existing code...

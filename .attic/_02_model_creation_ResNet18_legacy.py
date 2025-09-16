@@ -1,0 +1,3 @@
+# Legacy model creation script (ResNet18, archived for reference)
+# Not used in main pipeline. See models/ for current version.
+...existing code...

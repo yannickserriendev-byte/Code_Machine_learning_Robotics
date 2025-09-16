@@ -1,0 +1,3 @@
+# Legacy testing script (archived for reference)
+# Not used in main pipeline. See inference/ for current version.
+...existing code...
