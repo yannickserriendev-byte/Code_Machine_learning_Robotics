@@ -55,7 +55,7 @@ def create_full_dataset(base_dir, output_dir, start_idx=1, end_idx=20):
         base_dir (str): Root directory containing all trial folders
         output_dir (str): Directory where the combined dataset will be saved
         start_idx (int): First trial number to process (default: 1)
-        end_idx (int): Last trial number to process (default: 20)
+        end_idx (int): Last trial number to process (default: 20) £ Can be adjusted based on trials completed during acquisition
     
     The function performs the following steps:
     1. Creates output directory structure

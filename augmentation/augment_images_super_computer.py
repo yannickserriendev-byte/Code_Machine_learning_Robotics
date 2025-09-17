@@ -70,8 +70,8 @@ PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 COMBINED_DATASET = os.path.join(PROJECT_ROOT, "data", "combined_dataset")
 
 # Input files from combined dataset
-input_csv = os.path.join(COMBINED_DATASET, "labels.csv")  # Combined labels from preprocessing
-input_img_dir = os.path.join(COMBINED_DATASET, "images")  # Combined images from preprocessing
+input_csv = os.path.join(COMBINED_DATASET, "0.labels.csv")  # Combined labels from preprocessing
+input_img_dir = os.path.join(COMBINED_DATASET, "0.images")  # Combined images from preprocessing
 
 # Generate output paths
 mode_suffix = "_grayscale" if USE_GRAYSCALE else "_rgb"
