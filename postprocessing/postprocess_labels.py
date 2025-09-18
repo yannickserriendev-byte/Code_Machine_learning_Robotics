@@ -85,7 +85,7 @@ def main():
     input_path =os.path.join(base_dir, "1.aug_lab_s_0918_1200.csv")
     # Detect environment (desktop or supercomputer) from input filename
     input_filename = os.path.basename(input_path)
-    env_match = re.search(r"1\.aug_lab_(s|sc)_(\d{4}_\d{4})\.csv", input_filename)
+    env_match = re.search(r"1\.aug_lab_(d|s)_(\d{4}_\d{4})\.csv", input_filename)
     if not env_match:
         raise ValueError("Input filename does not match expected pattern for environment and timestamp.")
     env_suffix = env_match.group(1)  # 's' for desktop, 'sc' for supercomputer
