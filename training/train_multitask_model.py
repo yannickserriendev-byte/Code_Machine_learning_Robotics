@@ -1,3 +1,13 @@
+###############################################################
+# train_multitask_model.py
+# -------------------------------------------------------------
+# Main training and evaluation script for multi-task tactile sensing models.
+# - Loads configuration and dataset
+# - Dynamically selects model architecture (ResNet18 or custom CNN)
+# - Handles training loop, validation, checkpointing, and final evaluation
+# - Reports metrics and saves plots/results for user analysis
+# -------------------------------------------------------------
+
 import os
 import re
 import json
@@ -19,16 +29,25 @@ import seaborn as sns
 import sys
 import os
 
-# Add the script's folder to sys.path
+# Add the script's folder to sys.path for local imports
 script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
-    
 
-# Direct imports since training and models are sibling folders under Code_Machine_learning_Robotics
+# Import dataset class for loading tactile sensing data
+
 from data_preparation import IsochromaticDataset
 
 def get_model(model_type, num_shape_classes):
+    """
+    Dynamically import and instantiate the selected model architecture.
+    Args:
+        model_type (str): 'resnet18' or 'owncnn'.
+        num_shape_classes (int): Number of shape classes for classification.
+    Returns:
+        torch.nn.Module: Instantiated model.
+    """
+    # Dynamically select the model architecture based on user config
     if model_type == "resnet18":
         from ResNet18_multitask import IsoNet as SelectedNet
     elif model_type == "owncnn":
@@ -39,7 +58,17 @@ def get_model(model_type, num_shape_classes):
     
 
 def main():
-
+    """
+    Main entry point for training and evaluating multi-task tactile sensing models.
+    Steps:
+    1. Load user configuration and augmentation parameters
+    2. Prepare dataset, split into train/val/test, and set up DataLoaders
+    3. Dynamically select and initialize model architecture
+    4. Resume from checkpoint if available, or start fresh
+    5. Run training loop with validation and checkpointing
+    6. Save final model and training/validation loss plots
+    7. Evaluate on test set, report metrics, and save results
+    """
     # ==== USER CONFIGURATION SECTION ====
     ENVIRONMENT = "desktop"  # "desktop" or "supercomputer"
     MODEL_TYPE = "owncnn"  # "resnet18" or "owncnn"
@@ -59,9 +88,9 @@ def main():
     # Path to aug_config file (update if needed)
     if ENVIRONMENT == "desktop":
         base_dir = r"C:\aa TU Delft\2. Master BME TU Delft + Rheinmetall Internship + Harvard Thesis\2. Year 2\2. Master Thesis at TU Delft\3. Master Thesis\code\code full pipeline\All code\Code from laptop\Testing_data_del\Data\full_dataset"
-        aug_config_path = os.path.join(base_dir, "aug_config_s_0918_2005.txt")
-        image_dir = os.path.join(base_dir, "1.aug_images_s_0918_2005")
-        labels_path = os.path.join(base_dir, "2.aug_lab_postproc_s_0918_2005.csv")
+        aug_config_path = os.path.join(base_dir, "aug_config_d_0918_2005.txt")
+        image_dir = os.path.join(base_dir, "1.aug_images_d_0918_2005")
+        labels_path = os.path.join(base_dir, "2.aug_lab_postproc_d_0918_2005.csv")
     elif ENVIRONMENT == "supercomputer":
         base_dir = "/scratch/yserrrien/data aqcuisition/1/Data_Sensor_1/Crisp images/Data/full_dataset"
         aug_config_path = os.path.join(base_dir, "aug_config_s_0918_2005.txt")
