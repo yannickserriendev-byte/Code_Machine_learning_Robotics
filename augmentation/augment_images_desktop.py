@@ -1,8 +1,61 @@
 """
 Advanced Image Augmentation Pipeline for Tactile Sensing Data
+===============================================
 
-This script implements a comprehensive image augmentation pipeline with configurable
-processing options and robust data handling to prevent CSV corruption.
+This script implements a comprehensive image augmentation pipeline specifically designed for 
+processing tactile sensing data captured through photoelastic imaging. It provides robust
+data handling mechanisms to prevent CSV corruption and maintains data integrity throughout
+the augmentation process.
+
+File Organization:
+-----------------
+1. Configuration Section:
+   - Processing mode parameters (grayscale, noise, augmentations count)
+   - Signal processing parameters (noise, jitter settings)
+   - System parameters (image size, alignment, save frequency)
+   - Path configuration and timestamp management
+
+2. Helper Functions:
+   - Data management (safe CSV operations)
+   - Image processing (grayscale conversion, noise addition)
+   - Geometric transformations (rotation, shifting, cropping)
+   - Image masking and filtering
+
+3. Main Processing Pipeline:
+   - Data validation and setup
+   - Augmentation loop with progress tracking
+   - Error handling and recovery mechanisms
+
+Key Features:
+------------
+- Robust CSV handling with validation and backup mechanisms
+- Configurable image processing pipeline with multiple augmentation options
+- Support for both RGB and grayscale processing
+- Geometric transformations with coordinate system preservation
+- Progress tracking with periodic saves
+- Detailed configuration logging
+- Error recovery and diagnostic capabilities
+
+Dependencies:
+------------
+- PIL (Python Imaging Library) for image processing
+- pandas for data management
+- numpy for numerical operations
+- torchvision for advanced image transformations
+- tqdm for progress tracking
+
+Usage:
+------
+Configure the parameters in the configuration section and run the script. The system will:
+1. Create a timestamped output directory
+2. Generate augmented versions of each input image
+3. Track and update position coordinates after transformations
+4. Save progress periodically to prevent data loss
+5. Generate a detailed configuration log for reproducibility
+
+Author: Yannick Serrien
+Created for: TU Delft Master Thesis Project
+Date: September 2025
 """
 
 import os
@@ -82,12 +135,30 @@ with open(config_path, 'w') as f:
 
 # ==== Helper Functions ====
 def safe_save_dataframe(df, working_file, final_file=None):
-    """Safely save DataFrame to CSV with verification.
+    """Safely save DataFrame to CSV with built-in verification and backup mechanisms.
+    
+    This function implements a two-phase save process to prevent data corruption:
+    1. First saves to a working file and verifies its integrity
+    2. If verification passes and a final file is specified, copies to final location
+    
+    The verification process includes:
+    - Complete write verification
+    - DataFrame structure validation
+    - CSV parsing validation
     
     Args:
-        df: pandas DataFrame to save
-        working_file: Path to the working CSV file
-        final_file: Optional path for the final CSV location
+        df (pd.DataFrame): The pandas DataFrame to save
+        working_file (str): Path to the temporary working CSV file
+        final_file (str, optional): Path for the final CSV location. If None, 
+            only saves to working file
+            
+    Returns:
+        bool: True if save operation successful, False otherwise
+        
+    Error Handling:
+        - Catches and logs all IO and parsing exceptions
+        - Preserves working file on failure for recovery
+        - Validates both working and final files after writing
     """
     try:
         # First save to working file
@@ -123,7 +194,26 @@ def safe_save_dataframe(df, working_file, final_file=None):
         return False
 
 def convert_to_grayscale(img):
-    """Convert RGB image to grayscale using standardized weights."""
+    """Convert RGB image to grayscale using standardized ITU-R BT.601 weights.
+    
+    This function implements the luminance preservation algorithm using the 
+    standardized coefficients:
+    - Red channel: 0.299
+    - Green channel: 0.587
+    - Blue channel: 0.114
+    
+    These weights account for human perception of color channels.
+    
+    Args:
+        img (PIL.Image): Input RGB image to convert
+        
+    Returns:
+        PIL.Image: Grayscale image converted back to RGB format for compatibility
+        
+    Note:
+        Returns RGB format (not single-channel) to maintain compatibility with
+        other processing functions that expect 3-channel inputs.
+    """
     if img.mode != 'RGB':
         img = img.convert('RGB')
     
@@ -132,14 +222,54 @@ def convert_to_grayscale(img):
     return Image.fromarray(grayscale, mode='L').convert('RGB')
 
 def add_gaussian_noise(img, sigma=NOISE_SIGMA):
-    """Add calibrated Gaussian noise to image."""
+    """Add Gaussian noise to image for data augmentation.
+    
+    Implements zero-mean Gaussian noise injection with configurable intensity.
+    The process:
+    1. Normalizes image to [0,1] range
+    2. Adds normally distributed noise
+    3. Clips results to valid range
+    4. Converts back to uint8
+    
+    Args:
+        img (PIL.Image): Input image to add noise to
+        sigma (float): Standard deviation of the Gaussian noise,
+                      normalized to [0,1] range. Default from global config.
+                      
+    Returns:
+        PIL.Image: Image with added noise
+        
+    Implementation Notes:
+        - Uses normalized float operations for precision
+        - Employs numpy's optimized random number generation
+        - Ensures output stays in valid range via clipping
+    """
     np_img = np.array(img).astype(float) / 255.0
     noise = np.random.normal(0, sigma, np_img.shape)
     noisy = np.clip(np_img + noise, 0, 1)
     return Image.fromarray((noisy * 255).astype(np.uint8))
 
 def rotate_point(x, y, angle_degrees, center_x=0.0, center_y=0.0):
-    """Rotate a point around a center by specified angle."""
+    """Rotate a point around a specified center point by a given angle.
+    
+    Implements the 2D rotation matrix transformation:
+    [x'] = [cos θ  -sin θ] [x - cx]  + [cx]
+    [y'] = [sin θ   cos θ] [y - cy]  + [cy]
+    
+    Args:
+        x (float): X-coordinate of point to rotate
+        y (float): Y-coordinate of point to rotate
+        angle_degrees (float): Rotation angle in degrees (clockwise)
+        center_x (float, optional): X-coordinate of rotation center. Defaults to 0.0
+        center_y (float, optional): Y-coordinate of rotation center. Defaults to 0.0
+        
+    Returns:
+        tuple(float, float): New (x,y) coordinates after rotation
+        
+    Note:
+        Uses positive angle for clockwise rotation to match image processing
+        convention, contrary to standard mathematical convention.
+    """
     angle_radians = math.radians(angle_degrees)
     x_shifted = x - center_x
     y_shifted = y - center_y
@@ -148,13 +278,53 @@ def rotate_point(x, y, angle_degrees, center_x=0.0, center_y=0.0):
     return new_x + center_x, new_y + center_y
 
 def shift_image_right_crop(img, shift_pixels):
-    """Shift image horizontally with edge cropping."""
+    """Shift image horizontally with intelligent edge handling.
+    
+    Performs a horizontal shift operation while maintaining image dimensions
+    through strategic cropping. Used for alignment correction in the
+    tactile sensor image processing pipeline.
+    
+    Process:
+    1. Pads image on the specified side
+    2. Crops to maintain original dimensions
+    3. Preserves image quality and aspect ratio
+    
+    Args:
+        img (PIL.Image): Input image to shift
+        shift_pixels (int): Number of pixels to shift right (negative for left)
+        
+    Returns:
+        PIL.Image: Shifted and cropped image of same dimensions as input
+        
+    Note:
+        Uses torchvision's functional transforms for efficient processing
+    """
     w, h = img.size
     padded = F.pad(img, padding=[shift_pixels, 0, 0, 0], fill=0)
     return padded.crop((0, 0, w, h))
 
 def apply_circular_mask(img, diameter):
-    """Apply circular mask to image."""
+    """Apply circular mask to image for tactile sensor region isolation.
+    
+    Creates a binary circular mask and applies it to the image to isolate
+    the active tactile sensing region and remove edge artifacts.
+    
+    Implementation Details:
+    1. Creates distance matrix from center
+    2. Generates binary circular mask
+    3. Applies mask while preserving color channels
+    4. Handles both RGB and grayscale images
+    
+    Args:
+        img (PIL.Image): Input image to mask
+        diameter (int): Diameter of the circular mask in pixels
+        
+    Returns:
+        PIL.Image: Masked image with regions outside circle set to black
+        
+    Note:
+        Automatically detects and preserves image color mode (RGB/grayscale)
+    """
     np_img = np.array(img)
     w, h = img.size
     radius = diameter // 2
@@ -171,7 +341,27 @@ def apply_circular_mask(img, diameter):
     return Image.fromarray(masked_img)
 
 def crop_center(img, target_size):
-    """Crop image to specified size from center."""
+    """Crop image to specified size from center point.
+    
+    Performs centered cropping operation to extract region of interest
+    while maintaining aspect ratio and central alignment. Critical for
+    maintaining consistent input size for neural network processing.
+    
+    Process:
+    1. Calculates center coordinates
+    2. Determines crop boundaries
+    3. Extracts square region of specified size
+    
+    Args:
+        img (PIL.Image): Input image to crop
+        target_size (int): Size of the square crop region in pixels
+        
+    Returns:
+        PIL.Image: Cropped square image of specified size
+        
+    Note:
+        Assumes input image is larger than target_size in both dimensions
+    """
     w, h = img.size
     center_x, center_y = w // 2, h // 2
     left = center_x - target_size // 2
@@ -179,7 +369,32 @@ def crop_center(img, target_size):
     return img.crop((left, top, left + target_size, top + target_size))
 
 def process_image(img, apply_jitter=True):
-    """Apply configured image processing pipeline."""
+    """Apply the configured image processing pipeline to a single image.
+    
+    This function orchestrates the complete image processing sequence:
+    1. Optional grayscale conversion (if USE_GRAYSCALE is True)
+    2. Color jittering for augmentation (if apply_jitter is True):
+       - Brightness variation
+       - Contrast adjustment
+       - Saturation modification (RGB only)
+       - Hue shifting (RGB only)
+    3. Optional Gaussian noise injection (if APPLY_NOISE is True)
+    
+    Args:
+        img (PIL.Image): Input image to process
+        apply_jitter (bool): Whether to apply color jittering transforms.
+                           Default True for augmented images, False for originals.
+                           
+    Returns:
+        PIL.Image: Processed image with all configured transformations applied
+        
+    Configuration Dependencies:
+        Uses global parameters for processing options and intensities:
+        - USE_GRAYSCALE
+        - APPLY_NOISE
+        - JITTER_* parameters
+        - NOISE_SIGMA
+    """
     if USE_GRAYSCALE:
         img = convert_to_grayscale(img)
     
@@ -198,7 +413,44 @@ def process_image(img, apply_jitter=True):
     return img
 
 def main():
-    """Main execution function with error handling and data validation."""
+    """Main execution function orchestrating the complete augmentation pipeline.
+    
+    This function implements the core augmentation workflow:
+    
+    1. Initialization:
+       - Creates output directories
+       - Validates input data and required columns
+       - Sets up progress tracking
+    
+    2. Main Processing Loop:
+       - Loads and validates each input image
+       - Processes original image without jitter
+       - Generates specified number of augmented versions:
+         * Applies color jittering
+         * Performs geometric transformations
+         * Updates coordinate systems
+       - Maintains progress tracking and periodic saves
+    
+    3. Data Management:
+       - Tracks augmented sample metadata
+       - Periodically saves progress to prevent data loss
+       - Validates saved data integrity
+    
+    4. Error Handling:
+       - Catches and logs all exceptions
+       - Maintains working files for recovery
+       - Provides detailed error reporting
+    
+    Dependencies:
+        Requires properly configured global parameters and
+        valid input data structure (CSV with required columns)
+    
+    Output:
+        - Augmented images in specified output directory
+        - Updated CSV with augmentation metadata
+        - Configuration log file
+        - Progress indicators and error reports
+    """
     try:
         # ==== Prepare Output Directory ====
         os.makedirs(output_img_dir, exist_ok=True)
@@ -257,6 +509,7 @@ def main():
 
                     # === Generate augmented versions ===
                     for i in range(NUM_AUGMENTATIONS_PER_IMAGE):
+                        # Random rotation angle
                         angle = random.uniform(0, 360)
                         
                         # Process augmented image
