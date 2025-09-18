@@ -31,7 +31,7 @@ RANDOM_SEED = 42
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ==== Paths ====
-base_dir = "<SET TO YOUR DATASET ROOT>"
+base_dir = "C:\aa TU Delft\2. Master BME TU Delft + Rheinmetall Internship + Harvard Thesis\2. Year 2\2. Master Thesis at TU Delft\3. Master Thesis\code\code full pipeline\All code\Code from laptop\Testing_data_del\Data\full_dataset"
 image_dir = os.path.join(base_dir, "images")
 labels_path = os.path.join(base_dir, "labels.csv")
 
