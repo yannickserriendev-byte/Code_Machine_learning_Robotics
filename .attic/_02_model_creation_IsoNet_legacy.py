@@ -1,3 +1,0 @@
-# Legacy model creation script (IsoNet, archived for reference)
-# Not used in main pipeline. See models/ for current version.
-...existing code...
