@@ -18,12 +18,9 @@ class IsochromaticDataset(Dataset):
         self.data = pd.read_csv(labels_csv)
 
         # Ensure numeric types where needed
-        # Use standardized column names from pipeline
-        numeric_cols = ['Fx', 'Fy', 'Fz', 'Ft', 'Mx', 'My', 'Mz',
-                       'Contact_X_mm_after_rotation', 'Contact_Y_mm_after_rotation']
+        numeric_cols = ['Fx', 'Fy', 'Fz', 'Mx', 'My', 'Mz', 'Ft', 'X_Position_mm_after_rotation', 'Y_Position_mm_after_rotation']
         for col in numeric_cols:
-            if col in self.data.columns:
-                self.data[col] = pd.to_numeric(self.data[col], errors='coerce')
+            self.data[col] = pd.to_numeric(self.data[col], errors='coerce')
         
         self.transform = transform if transform else transforms.Compose([
             transforms.Resize((224, 224)),
@@ -43,10 +40,8 @@ class IsochromaticDataset(Dataset):
         image = Image.open(img_path).convert("L")
         image = self.transform(image)
 
-        # Extract force/moment values
-        forces = torch.tensor(row[['Fx', 'Fy', 'Fz', 'Ft', 'Mx', 'My', 'Mz']].astype(np.float32).values)
+        forces = torch.tensor(row[['Fx', 'Fy', 'Fz', 'Mx', 'My', 'Mz', 'Ft']].astype(np.float32).values)
         shape_class = torch.tensor(row['shape_class'], dtype=torch.long)
-        # Use standardized contact point columns
         contact_point = torch.tensor(row[['X_Position_mm_after_rotation', 'Y_Position_mm_after_rotation']].astype(np.float32).values)
 
         return image, forces, shape_class, contact_point
