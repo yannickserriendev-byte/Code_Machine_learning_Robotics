@@ -6,9 +6,22 @@ from torchvision import transforms
 from pypylon import pylon
 from PIL import Image, ImageDraw
 
-# ==== USER CONFIGURATION SECTION ====
-MODEL_TYPE = "resnet18"  # "resnet18" or "owncnn"
-COLOR_MODE = "grayscale"  # "grayscale" or "rgb"
+# =============================================================
+# Unified Inference Script for Multi-Task Tactile Sensing
+# -------------------------------------------------------------
+# This script performs real-time inference using either ResNet18
+# or a custom CNN model on photoelastic fringe pattern images.
+# It supports grayscale and RGB modes, and runs on CPU or GPU.
+# Camera acquisition, preprocessing, and prediction are integrated.
+# =============================================================
+
+###############################################################
+# USER CONFIGURATION SECTION
+# -------------------------------------------------------------
+# Set model type, color mode, device, and paths below.
+###############################################################
+MODEL_TYPE = "resnet18"  # Options: "resnet18" or "owncnn"
+COLOR_MODE = "grayscale"  # Options: "grayscale" or "rgb"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BASE_DIR = r"C:\aa TU Delft\2. Master BME TU Delft + Rheinmetall Internship + Harvard Thesis\2. Year 2\2. Master Thesis at TU Delft\3. Master Thesis\code\code full pipeline\All code\Code from laptop\Testing_data_del\Data\full_dataset"
 MODEL_PATH = os.path.join(BASE_DIR, "model_checkpoint.pth")
@@ -16,8 +29,18 @@ LABELS_CSV = os.path.join(BASE_DIR, "labels.csv")
 IMAGE_DIR = os.path.join(BASE_DIR, "images")
 MAX_POINTS = 100
 
-# ==== Dynamic Imports ====
+###############################################################
+# Dynamic Model and Dataset Imports
+###############################################################
 def get_model(model_type, num_shape_classes):
+    """
+    Dynamically import and instantiate the selected model architecture.
+    Args:
+        model_type (str): 'resnet18' or 'owncnn'.
+        num_shape_classes (int): Number of shape classes for classification.
+    Returns:
+        torch.nn.Module: Instantiated model.
+    """
     if model_type == "resnet18":
         from model_ResNet18 import IsoNet as SelectedNet
     elif model_type == "owncnn":
@@ -27,13 +50,31 @@ def get_model(model_type, num_shape_classes):
     return SelectedNet(num_shape_classes=num_shape_classes)
 
 def get_dataset():
+    """
+    Import and instantiate the dataset class for inference.
+    Returns:
+        IsochromaticDataset: Dataset object for image and label loading.
+    """
     from inference_dataset import IsochromaticDataset
     return IsochromaticDataset(images_folder=IMAGE_DIR, labels_csv=LABELS_CSV)
 
-# ==== Preprocessing ====
+###############################################################
+# Image Preprocessing Pipeline
+###############################################################
 def get_preprocessor(color_mode):
+    """
+    Return preprocessing function for the selected color mode.
+    Args:
+        color_mode (str): 'grayscale' or 'rgb'.
+    Returns:
+        function: Preprocessing function for camera images.
+    """
     if color_mode == "grayscale":
         def preprocess(img_bgr):
+            """
+            Preprocess BGR image to normalized grayscale tensor for model input.
+            Steps: crop, mask, resize, normalize, expand to 3 channels.
+            """
             img = Image.fromarray(img_bgr).convert("L")
             img = img.crop((30, 0, img.width, img.height))
             left = (img.width - 980) // 2
@@ -51,6 +92,10 @@ def get_preprocessor(color_mode):
         return preprocess
     elif color_mode == "rgb":
         def preprocess(img_bgr):
+            """
+            Preprocess BGR image to normalized RGB tensor for model input.
+            Steps: convert, crop, mask, resize, normalize.
+            """
             img_rgb = Image.fromarray(img_bgr[..., ::-1])
             img_rgb = img_rgb.crop((30, 0, img_rgb.width, img_rgb.height))
             left = (img_rgb.width - 980) // 2
@@ -68,8 +113,15 @@ def get_preprocessor(color_mode):
     else:
         raise ValueError("Unknown COLOR_MODE: choose 'grayscale' or 'rgb'")
 
-# ==== Main Inference Logic ====
+###############################################################
+# Main Inference Logic
+###############################################################
 def main():
+    """
+    Main entry point for real-time inference.
+    Loads model, prepares camera, acquires image, preprocesses, and predicts.
+    Prints predicted forces, class, and contact point.
+    """
     print(f"🖥️ Using device: {DEVICE}")
     print(f"Model: {MODEL_TYPE}, Color mode: {COLOR_MODE}")
     dataset = get_dataset()
@@ -82,7 +134,7 @@ def main():
     model.eval()
     preprocess = get_preprocessor(COLOR_MODE)
 
-    # Camera setup
+    # Camera setup and acquisition
     camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())
     camera.Open()
     camera.AcquisitionFrameRateEnable.SetValue(True)
@@ -102,5 +154,6 @@ def main():
         print("Failed to grab image from camera.")
     camera.Close()
 
+# Entry point
 if __name__ == "__main__":
     main()
