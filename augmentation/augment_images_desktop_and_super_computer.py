@@ -112,7 +112,7 @@ APPLY_NOISE = False
 # NUM_AUGMENTATIONS_PER_IMAGE: Number of variants per input image
 # - Higher values provide more training diversity
 # - Impacts processing time and storage requirements linearly
-NUM_AUGMENTATIONS_PER_IMAGE = 1
+NUM_AUGMENTATIONS_PER_IMAGE = 2
 
 # Signal Processing Parameters
 # -------------------------
@@ -231,9 +231,9 @@ class AugmentationConfig:
         env_suffix = "_s" if self.environment == "supercomputer" else "_d"  # s for supercomputer, d for desktop
         
         self.output_dir = os.path.join(base_dir, 
-            f"1.augmented_images{env_suffix}_{timestamp}")
+            f"1.aug_images{env_suffix}_{timestamp}")
         self.output_csv = os.path.join(base_dir,
-            f"1.augmented_labels{env_suffix}_{timestamp}.csv")
+            f"1.aug_lab{env_suffix}_{timestamp}.csv")
         self.log_file = os.path.join(base_dir, f"aug_config{env_suffix}_{timestamp}.txt")
 
         # Create output directory
@@ -526,12 +526,14 @@ def process_row(row: pd.Series, processor: ImageProcessor, output_dir: str) -> l
     """
     Process a single image row with all its augmentations.
     
-    This function handles the complete augmentation pipeline for one image:
-    1. Loads and validates the input image
-    2. Generates multiple augmented versions with random rotations
-    3. Applies all configured transformations (jitter, noise, etc.)
-    4. Updates contact point coordinates after transformations
-    5. Saves augmented images and metadata
+     This function handles the complete augmentation pipeline for one image:
+     1. Loads and validates the input image
+     2. Generates multiple augmented versions with random rotations
+     3. Applies all configured transformations (jitter, noise, etc.)
+     4. Updates contact point coordinates after transformations
+         - Uses 'Contact_X_mm_original', 'Contact_Y_mm_original' for pre-rotation positions
+         - Uses 'Contact_X_mm_after_rotation', 'Contact_Y_mm_after_rotation' for post-rotation positions
+     5. Saves augmented images and metadata
     
     The function is designed to be thread-safe for parallel processing
     in the supercomputer environment.
@@ -542,8 +544,9 @@ def process_row(row: pd.Series, processor: ImageProcessor, output_dir: str) -> l
         output_dir: Output directory path for augmented images
         
     Returns:
-        list: List of dictionaries containing metadata for each augmented version
-              including new filenames, transformed coordinates, and rotation angles
+      list: List of dictionaries containing metadata for each augmented version
+          including new filenames, transformed coordinates, and rotation angles
+          with clear column names for original and rotated positions
         
     Thread Safety:
         This function is designed to be thread-safe as it:
@@ -563,7 +566,7 @@ def process_row(row: pd.Series, processor: ImageProcessor, output_dir: str) -> l
             
         # Load base image
         base_tensor = processor.load_image(img_path)
-        contact_point = (row["X_Position_mm"], row["Y_Position_mm"])
+        contact_point = (row["X_Position_mm_original"], row["Y_Position_mm_original"])
         
         # Generate augmentations
         for i in range(processor.config.num_augmentations):
@@ -582,7 +585,7 @@ def process_row(row: pd.Series, processor: ImageProcessor, output_dir: str) -> l
             # Update metadata
             meta = row.copy()
             meta["New_Image_Name"] = aug_name
-            meta["x"], meta["y"] = new_point
+            meta["X_Position_mm_after_rotation"], meta["Y_Position_mm_after_rotation"] = new_point
             meta["rotation_angle"] = angle
             results.append(meta)
             
@@ -631,13 +634,19 @@ def main():
             raise FileNotFoundError(f"Input CSV not found: {config.input_csv}")
             
         df = pd.read_csv(config.input_csv)
-        required_columns = ["New_Image_Name", "X_Position_mm", "Y_Position_mm"]
+        # Rename original position columns for compatibility
+        if "X_Position_mm" in df.columns and "Y_Position_mm" in df.columns:
+            df = df.rename(columns={
+                "X_Position_mm": "X_Position_mm_original",
+                "Y_Position_mm": "Y_Position_mm_original"
+            })
+        required_columns = ["New_Image_Name", "X_Position_mm_original", "Y_Position_mm_original"]
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             raise ValueError(f"Missing required columns: {missing_columns}")
             
         # Initialize result dataframe
-        df_aug = pd.DataFrame(columns=list(df.columns) + ["x","y","rotation_angle"])
+        df_aug = pd.DataFrame(columns=list(df.columns) + ["X_Position_mm_after_rotation","Y_Position_mm_after_rotation","rotation_angle"])
         processed_count = 0
         
         # Process images in parallel
