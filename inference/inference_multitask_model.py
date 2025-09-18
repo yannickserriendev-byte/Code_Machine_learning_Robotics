@@ -19,8 +19,8 @@ from torchvision import transforms
 from torch import nn
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
 from Code_Machine_learning_Robotics.utils.dataset import IsochromaticDataset
-from Code_Machine_learning_Robotics.models.resnet18_multitask import IsoNet
-from Code_Machine_learning_Robotics.models.simplecnn_multitask import SimpleCNN
+from Code_Machine_learning_Robotics.training.resnet18_multitask import IsoNet
+from Code_Machine_learning_Robotics.training.simplecnn_multitask import SimpleCNN
 
 # ==== Configuration ====
 BATCH_SIZE = 32

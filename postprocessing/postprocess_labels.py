@@ -96,7 +96,7 @@ def main():
     # --- Path setup ---
     # User provides the input file path directly below
     base_dir = r"C:\aa TU Delft\2. Master BME TU Delft + Rheinmetall Internship + Harvard Thesis\2. Year 2\2. Master Thesis at TU Delft\3. Master Thesis\code\code full pipeline\All code\Code from laptop\Testing_data_del\Data\full_dataset"  # <-- EDIT THIS LINE
-    input_path = os.path.join(base_dir, "1.aug_lab_s_0918_1200.csv")
+    input_path = os.path.join(base_dir, "1.aug_lab_s_0918_2005.csv")
 
     # Detect environment (desktop or supercomputer) from input filename for output naming
     input_filename = os.path.basename(input_path)

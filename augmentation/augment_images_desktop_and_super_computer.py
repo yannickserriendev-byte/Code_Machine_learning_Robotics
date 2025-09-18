@@ -220,6 +220,7 @@ class AugmentationConfig:
         
     def setup_paths(self):
         
+        # Note: when using supercomputer, ensure the base_dir does not start with r"", instead use "" and do not include the r
         base_dir = r"C:\aa TU Delft\2. Master BME TU Delft + Rheinmetall Internship + Harvard Thesis\2. Year 2\2. Master Thesis at TU Delft\3. Master Thesis\code\code full pipeline\All code\Code from laptop\Testing_data_del\Data\full_dataset"
         
         # Input paths
